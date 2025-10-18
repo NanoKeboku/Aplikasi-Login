@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Core data model for Kumpul.in - local community space reservations
+
+model User {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  email        String    @unique
+  name         String
+  phone        String?
+  role         UserRole  @default(USER)
+
+  // Relations
+  managedFacilities Facility[]
+  bookings           Booking[]
+  reviews            Review[]
+}
+
+enum UserRole {
+  USER
+  MANAGER
+  ADMIN
+}
+
+model Facility {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  name        String
+  description String
+  city        String
+  district    String?
+  address     String
+  latitude    Float?
+  longitude   Float?
+  contactName String
+  contactPhone String
+  contactEmail String?
+  photos      Json       // array of URLs
+
+  managerId   String
+  manager     User       @relation(fields: [managerId], references: [id])
+
+  rooms       Room[]
+  reviews     Review[]
+}
+
+model Room {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  name         String
+  capacity     Int
+  amenities    Json      // array of strings, e.g., ["AC", "Projector"]
+  hourlyRate   Int?      // informational only; payments offline per scope
+  photos       Json
+
+  facilityId   String
+  facility     Facility  @relation(fields: [facilityId], references: [id])
+
+  bookings     Booking[]
+}
+
+model Booking {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  date         DateTime  // date portion used; time slots below
+  startHour    Int       // 0-23
+  endHour      Int       // 1-24, > startHour
+  status       BookingStatus @default(PENDING)
+
+  title        String
+  purpose      String
+  contactName  String
+  contactPhone String
+  notes        String?
+
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+
+  roomId       String
+  room         Room       @relation(fields: [roomId], references: [id])
+
+  @@index([roomId, date])
+  @@unique([roomId, date, startHour, endHour])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  rating      Int       // 1..5
+  comment     String?
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+
+  facilityId  String
+  facility    Facility  @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId])
+}
